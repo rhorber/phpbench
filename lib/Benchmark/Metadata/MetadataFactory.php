@@ -12,9 +12,14 @@
 
 namespace PhpBench\Benchmark\Metadata;
 
+use InvalidArgumentException;
+use PhpBench\Model\Exception\InvalidParameterSets;
 use PhpBench\Model\Subject;
 use PhpBench\Reflection\ReflectionHierarchy;
 use PhpBench\Reflection\ReflectorInterface;
+use PhpBench\Tests\Unit\Benchmark\Metadata\Exception\CouldNotLoadMetadataException;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 /**
  * Benchmark Metadata Factory.
@@ -31,10 +36,16 @@ class MetadataFactory
      */
     private $driver;
 
-    public function __construct(ReflectorInterface $reflector, DriverInterface $driver)
+    /**
+     * @var LoggerInterface
+     */
+    private $logger;
+
+    public function __construct(ReflectorInterface $reflector, DriverInterface $driver, LoggerInterface $logger = null)
     {
         $this->reflector = $reflector;
         $this->driver = $driver;
+        $this->logger = $logger ?: new NullLogger();
     }
 
     /**
@@ -60,7 +71,16 @@ class MetadataFactory
             return null;
         }
 
-        $metadata = $this->driver->getMetadataForHierarchy($hierarchy);
+        try {
+            $metadata = $this->driver->getMetadataForHierarchy($hierarchy);
+        } catch (CouldNotLoadMetadataException $couldNotLoad) {
+            $this->logger->warning(sprintf(
+                'Could not load metadata for file "%s" - is this file intended to be a benchmark? Perhaps setting the `runner.file_pattern` to `*Bench.php` will help: %s',
+                $file, $couldNotLoad->getMessage()
+            ));
+
+            return null;
+        }
         $this->validateBenchmark($hierarchy, $metadata);
 
         // validate the subject and load the parameter sets
@@ -71,17 +91,16 @@ class MetadataFactory
             if (!$paramProviders) {
                 continue;
             }
-            $parameterSets = $this->reflector->getParameterSets($metadata->getPath(), $paramProviders);
 
-            foreach ($parameterSets as $parameterSet) {
-                if (!is_array($parameterSet)) {
-                    throw new \InvalidArgumentException(sprintf(
-                        'Each parameter set must be an array, got "%s" for %s::%s',
-                        gettype($parameterSet),
-                        $metadata->getClass(),
-                        $subject->getName()
-                    ));
-                }
+            try {
+                $parameterSets = $this->reflector->getParameterSets($metadata->getPath(), $paramProviders);
+            } catch (InvalidParameterSets $invalid) {
+                throw new InvalidArgumentException(sprintf(
+                    '%s for %s::%s',
+                    $invalid->getMessage(),
+                    $metadata->getClass(),
+                    $subject->getName()
+                ));
             }
             $subject->setParameterSets($parameterSets);
         }

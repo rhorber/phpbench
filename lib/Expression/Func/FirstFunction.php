@@ -4,17 +4,21 @@ namespace PhpBench\Expression\Func;
 
 use PhpBench\Expression\Ast\ListNode;
 use PhpBench\Expression\Ast\Node;
-use PhpBench\Expression\Exception\EvaluationError;
+use PhpBench\Expression\Ast\NullNode;
 
 final class FirstFunction
 {
-    public function __invoke(ListNode $list): Node
+    public function __invoke(Node $list): Node
     {
-        $values = $list->value();
+        if (!$list instanceof ListNode) {
+            return new NullNode();
+        }
+
+        $values = $list->nodes();
         $first = reset($values);
 
         if (!$first) {
-            throw new EvaluationError($list, 'List is empty, cannot get first');
+            return new NullNode();
         }
 
         return $first;

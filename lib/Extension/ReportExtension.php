@@ -2,6 +2,7 @@
 
 namespace PhpBench\Extension;
 
+use PhpBench\Color\GradientBuilder;
 use PhpBench\Compat\SymfonyOptionsResolverCompat;
 use PhpBench\Console\Command\Handler\DumpHandler;
 use PhpBench\Console\Command\Handler\ReportHandler;
@@ -11,23 +12,42 @@ use PhpBench\Console\Command\ReportCommand;
 use PhpBench\Console\Command\ShowCommand;
 use PhpBench\DependencyInjection\Container;
 use PhpBench\DependencyInjection\ExtensionInterface;
-use PhpBench\Expression\Evaluator;
-use PhpBench\Expression\ExpressionLanguage;
+use PhpBench\Expression\ExpressionEvaluator;
+use PhpBench\Expression\NodePrinters;
 use PhpBench\Expression\Printer;
 use PhpBench\Expression\Printer\EvaluatingPrinter;
+use PhpBench\Expression\Printer\NormalizingPrinter;
 use PhpBench\Json\JsonDecoder;
 use PhpBench\Registry\ConfigurableRegistry;
+use PhpBench\Report\ComponentGenerator\BarChartAggregateComponentGenerator;
+use PhpBench\Report\ComponentGenerator\TableAggregateComponent;
+use PhpBench\Report\ComponentGenerator\TextComponentGenerator;
+use PhpBench\Report\Console\ObjectRenderer as ConsoleObjectRenderer;
+use PhpBench\Report\Console\Renderer\BarChartRenderer;
+use PhpBench\Report\Console\Renderer\ReportRenderer;
+use PhpBench\Report\Console\Renderer\ReportsRenderer;
+use PhpBench\Report\Console\Renderer\TableRenderer;
+use PhpBench\Report\Console\Renderer\TextRenderer;
 use PhpBench\Report\Generator\BareGenerator;
+use PhpBench\Report\Generator\ComponentGenerator;
 use PhpBench\Report\Generator\CompositeGenerator;
 use PhpBench\Report\Generator\EnvGenerator;
 use PhpBench\Report\Generator\ExpressionGenerator;
 use PhpBench\Report\Generator\OutputTestGenerator;
 use PhpBench\Report\Renderer\ConsoleRenderer;
 use PhpBench\Report\Renderer\DelimitedRenderer;
+use PhpBench\Report\Renderer\HtmlRenderer;
 use PhpBench\Report\ReportManager;
 use PhpBench\Report\Transform\SuiteCollectionTransformer;
 use PhpBench\Storage\UuidResolver;
+use PhpBench\Template\Expression\Printer\TemplateNodePrinter;
+use PhpBench\Template\Expression\Printer\TemplatePrinter;
+use PhpBench\Template\ObjectPathResolver\ChainObjectPathResolver;
+use PhpBench\Template\ObjectPathResolver\ReflectionObjectPathResolver;
+use PhpBench\Template\ObjectRenderer;
+use PhpBench\Template\TemplateService\ContainerTemplateService;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
 class ReportExtension implements ExtensionInterface
@@ -37,22 +57,41 @@ class ReportExtension implements ExtensionInterface
 
     public const SERVICE_REGISTRY_GENERATOR = 'report.registry_generator';
     public const SERVICE_REGISTRY_RENDERER = 'report.registry_renderer';
+    public const SERVICE_REGISTRY_COMPONENT = 'report.registry_component';
 
     public const TAG_REPORT_GENERATOR = 'report.generator';
+    public const TAG_COMPONENT_GENERATOR = 'report.component_generator';
     public const TAG_REPORT_RENDERER = 'report.renderer';
+    public const PARAM_TEMPLATE_MAP = 'report.template_map';
+    public const PARAM_TEMPLATE_PATHS = 'report.template_paths';
+    public const PARAM_OUTPUT_DIR_HTML = 'report.html_output_dir';
 
     public function configure(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([
             self::PARAM_REPORTS => [],
             self::PARAM_OUTPUTS => [],
+            self::PARAM_TEMPLATE_PATHS => [
+                __DIR__ . '/../../templates'
+            ],
+            self::PARAM_OUTPUT_DIR_HTML => '.phpbench/html',
+            self::PARAM_TEMPLATE_MAP => [
+                'PhpBench\\Report\\Model' => 'html',
+                'PhpBench\\Expression\\Ast' => 'html/node'
+            ],
         ]);
 
+        $resolver->setAllowedTypes(self::PARAM_TEMPLATE_MAP, ['array']);
+        $resolver->setAllowedTypes(self::PARAM_TEMPLATE_PATHS, ['array']);
+        $resolver->setAllowedTypes(self::PARAM_OUTPUT_DIR_HTML, ['string']);
         $resolver->setAllowedTypes(self::PARAM_REPORTS, ['array']);
         $resolver->setAllowedTypes(self::PARAM_OUTPUTS, ['array']);
         SymfonyOptionsResolverCompat::setInfos($resolver, [
             self::PARAM_REPORTS => 'Report generator configurations, see :doc:`report-generators`',
             self::PARAM_OUTPUTS => 'Report renderer configurations, see :doc:`report-renderers`',
+            self::PARAM_TEMPLATE_MAP => 'Namespace prefix to template path map for object rendering',
+            self::PARAM_TEMPLATE_PATHS => 'List of paths to load templates from',
+            self::PARAM_OUTPUT_DIR_HTML => 'Path in which to render HTML reports',
         ]);
     }
 
@@ -65,10 +104,13 @@ class ReportExtension implements ExtensionInterface
             );
         });
 
+        $this->registerRenderer($container);
+        $this->registerConsoleRenderer($container);
         $this->registerCommands($container);
         $this->registerRegistries($container);
         $this->registerReportGenerators($container);
         $this->registerReportRenderers($container);
+        $this->registerComponentGenerators($container);
     }
 
     private function registerJson(Container $container): void
@@ -140,12 +182,14 @@ class ReportExtension implements ExtensionInterface
 
     private function registerReportGenerators(Container $container): void
     {
+        $container->register(SuiteCollectionTransformer::class, function (Container $container) {
+            return new SuiteCollectionTransformer();
+        });
         $container->register(ExpressionGenerator::class, function (Container $container) {
             return new ExpressionGenerator(
-                $container->get(ExpressionLanguage::class),
-                $container->get(Evaluator::class),
+                $container->get(ExpressionEvaluator::class),
                 $container->get(EvaluatingPrinter::class),
-                new SuiteCollectionTransformer(),
+                $container->get(SuiteCollectionTransformer::class),
                 $container->get(LoggerInterface::class)
             );
         }, [self::TAG_REPORT_GENERATOR => ['name' => 'expression']]);
@@ -153,7 +197,7 @@ class ReportExtension implements ExtensionInterface
             return new EnvGenerator();
         }, [self::TAG_REPORT_GENERATOR => ['name' => 'env']]);
         $container->register(BareGenerator::class, function (Container $container) {
-            return new BareGenerator(new SuiteCollectionTransformer());
+            return new BareGenerator($container->get(SuiteCollectionTransformer::class));
         }, [self::TAG_REPORT_GENERATOR => ['name' => 'bare']]);
         $container->register(OutputTestGenerator::class, function (Container $container) {
             return new OutputTestGenerator();
@@ -165,21 +209,139 @@ class ReportExtension implements ExtensionInterface
         }, [
             self::TAG_REPORT_GENERATOR => ['name' => 'composite']
         ]);
+        $container->register(ComponentGenerator::class, function (Container $container) {
+            return new ComponentGenerator(
+                $container->get(SuiteCollectionTransformer::class),
+                $container->get(self::SERVICE_REGISTRY_COMPONENT),
+                $container->get(ExpressionEvaluator::class),
+                $container->get(LoggerInterface::class)
+            );
+        }, [
+            self::TAG_REPORT_GENERATOR => ['name' => 'component'],
+            self::TAG_COMPONENT_GENERATOR => ['name' => 'section']
+        ]);
     }
 
     private function registerReportRenderers(Container $container): void
     {
         $container->register(ConsoleRenderer::class, function (Container $container) {
             return new ConsoleRenderer(
-                $container->get(ConsoleExtension::SERVICE_OUTPUT_STD),
-                $container->get(Printer::class)
+                $container->get(ConsoleObjectRenderer::class)
             );
         }, [self::TAG_REPORT_RENDERER => ['name' => 'console']]);
+
         $container->register(DelimitedRenderer::class, function (Container $container) {
             return new DelimitedRenderer(
                 $container->get(ConsoleExtension::SERVICE_OUTPUT_STD),
                 $container->get(ExpressionExtension::SERVICE_BARE_PRINTER)
             );
         }, [self::TAG_REPORT_RENDERER => ['name' => 'delimited']]);
+
+        $container->register(HtmlRenderer::class, function (Container $container) {
+            return new HtmlRenderer(
+                $container->get(ConsoleExtension::SERVICE_OUTPUT_STD),
+                $container->get(ObjectRenderer::class),
+                $container->getParameter(CoreExtension::PARAM_WORKING_DIR)
+            );
+        }, [self::TAG_REPORT_RENDERER => ['name' => 'html']]);
+    }
+
+    private function registerRenderer(Container $container): void
+    {
+        $container->register(ObjectRenderer::class, function (Container $container) {
+            return new ObjectRenderer(
+                $container->get(ChainObjectPathResolver::class),
+                $container->getParameter(self::PARAM_TEMPLATE_PATHS),
+                new ContainerTemplateService($container, [
+                    'nodeEvaluator' => ExpressionEvaluator::class,
+                    'nodePrinter' => TemplatePrinter::class,
+                    'gradientBuilder' => GradientBuilder::class
+                ])
+            );
+        });
+
+        $container->register(GradientBuilder::class, function (Container $container) {
+            return new GradientBuilder();
+        });
+
+        $container->register(ChainObjectPathResolver::class, function (Container $container) {
+            return new ChainObjectPathResolver([
+                new ReflectionObjectPathResolver(
+                    $container->getParameter(self::PARAM_TEMPLATE_MAP)
+                )
+            ]);
+        });
+
+        $container->register(TemplatePrinter::class, function (Container $container) {
+            return new TemplatePrinter(
+                new NormalizingPrinter(
+                    new TemplateNodePrinter(
+                        $container->get(ObjectRenderer::class),
+                        $container->get(NodePrinters::class)
+                    )
+                )
+            );
+        });
+    }
+
+    private function registerComponentGenerators(Container $container): void
+    {
+        $container->register(self::SERVICE_REGISTRY_COMPONENT, function (Container $container) {
+            $serviceMap = [];
+
+            foreach ($container->getServiceIdsForTag(self::TAG_COMPONENT_GENERATOR) as $serviceId => $attrs) {
+                if (!isset($attrs['name'])) {
+                    throw new RuntimeException(sprintf(
+                        'Component DI definition "%s" must define the `name` attribute',
+                        $serviceId
+                    ));
+                }
+
+                $serviceMap[(string)$attrs['name']] = $serviceId;
+            }
+
+            return new ConfigurableRegistry(
+                'component',
+                $container,
+                $container->get(JsonDecoder::class),
+                $serviceMap
+            );
+        });
+
+        $container->register(TableAggregateComponent::class, function (Container $container) {
+            return new TableAggregateComponent($container->get(ExpressionEvaluator::class));
+        }, [
+            self::TAG_COMPONENT_GENERATOR => [ 'name' => 'table_aggregate' ]
+        ]);
+
+        $container->register(BarChartAggregateComponentGenerator::class, function (Container $container) {
+            return new BarChartAggregateComponentGenerator($container->get(ExpressionEvaluator::class));
+        }, [
+            self::TAG_COMPONENT_GENERATOR => [ 'name' => 'bar_chart_aggregate' ]
+        ]);
+        $container->register(TextComponentGenerator::class, function (Container $container) {
+            return new TextComponentGenerator($container->get(ExpressionEvaluator::class));
+        }, [
+            self::TAG_COMPONENT_GENERATOR => [ 'name' => 'text' ]
+        ]);
+    }
+
+    private function registerConsoleRenderer(Container $container): void
+    {
+        $container->register(ConsoleObjectRenderer::class, function (Container $container) {
+            return new ConsoleObjectRenderer(
+                $container->get(ConsoleExtension::SERVICE_OUTPUT_STD),
+                new ReportsRenderer(),
+                new BarChartRenderer(
+                    $container->get(ExpressionEvaluator::class),
+                    $container->get(ExpressionExtension::SERVICE_PLAIN_PRINTER)
+                ),
+                new ReportRenderer(),
+                new TableRenderer($container->get(Printer::class)),
+                new TextRenderer()
+            );
+        }, [
+            self::TAG_COMPONENT_GENERATOR => [ 'name' => 'bar_chart_aggregate' ]
+        ]);
     }
 }

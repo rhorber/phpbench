@@ -56,6 +56,16 @@ Examples:
 
 .. literalinclude:: ../examples/Expression/string_operators_1
 
+Null Safe Operator
+------------------
+
+Use the null-safe operator to evaluate absence as `null` rather than throwing
+a runtime exception.
+
+Examples:
+
+.. literalinclude:: ../examples/Expression/null_safe_1
+
 .. _expr_arithmetic:
 
 Arithmetic
@@ -151,6 +161,24 @@ You can also specify a percentage value:
 
 .. literalinclude:: ../examples/Expression/tolerance_2
 
+.. _expr_filtering:
+
+Filtering
+---------
+
+Enter an expression within square brackets to filter the dataset on a data
+frame:
+
+.. literalinclude:: ../examples/Expression/filter_1
+
+Note that this will only work when the underlying variable is a data frame,
+if it is not you will encounter an exception such as:
+
+.. code-block:: text
+
+    Expression provided but container is not a data frame, it is "array"
+
+
 .. _expr_functions:
 
 Functions
@@ -161,7 +189,8 @@ Functions
 max
 ~~~
 
-Return the max value in a set of values:
+Return the max value in a set of values, if values are empty it will return
+NULL:
 
 .. literalinclude:: ../examples/Expression/func_max
 
@@ -179,7 +208,8 @@ Return the mean (i.e. average) value in a set of values:
 min
 ~~~
 
-Return the min value in a set of values:
+Return the min value in a set of values, if values are empty it will return
+NULL:
 
 .. literalinclude:: ../examples/Expression/func_min
 
@@ -247,7 +277,8 @@ Join values with a delimiter
 first
 ~~~~~
 
-Return the first element in an array, or throw an evaluation error.
+Return the first element in an array, if values are empty it will return
+NULL.
 
 .. literalinclude:: ../examples/Expression/first_1
 
@@ -265,9 +296,22 @@ Similar to :ref:`expr_display_as` but also allows specification of the "mode"
 
 .. literalinclude:: ../examples/Expression/display_as_time_1
 
+sum
+~~~
+
+Evaluate sum of given numbers
+
+.. literalinclude:: ../examples/Expression/sum_1
+
+count
+~~~~~
+
+Evaluate count of given numbers
+
+.. literalinclude:: ../examples/Expression/count_1
+
 .. _KDE mode: https://en.wikipedia.org/wiki/Kernel_density_estimation
 .. _standard deviation: https://en.wikipedia.org/wiki/Standard_deviation
 .. _variance: https://en.wikipedia.org/wiki/Variance
 .. _relative standard deviation: https://en.wikipedia.org/wiki/Coefficient_of_variation
 .. _sprintf: https://www.php.net/manual/en/function.sprintf.php
-

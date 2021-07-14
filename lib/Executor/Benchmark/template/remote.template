@@ -21,34 +21,52 @@ if ($bootstrap) {
 
 require_once($file);
 
+$parameters = array_map(function ($value) {
+    // b/c for unsafe (non-serialized) parameters
+    if (is_array($value)) {
+        return $value;
+    }
+    return unserialize($value);
+}, {{ parameters }});
+
 $benchmark = new $class();
 
 // run before methods
 foreach ($beforeMethods as $beforeMethod) {
-    $benchmark->$beforeMethod({{ parameters }});
+    $benchmark->$beforeMethod($parameters);
 }
 
 // run warmup if required
 if ($warmup) {
     for ($i = 0; $i < $warmup; $i++) {
-        $benchmark->{{ subject }}({{ parameters }});
+        $benchmark->{{ subject }}($parameters);
     }
 }
 
-// run benchmark
-$startTime = microtime(true);
 
-for ($i = 0; $i < {{ revolutions }}; $i++) {
-    $benchmark->{{ subject }}({{ parameters }});
+// only pass parameters if they are supplied:passing parameters costs time
+if ($parameters) {
+    $startTime = microtime(true);
+
+    for ($i = 0; $i < {{ revolutions }}; $i++) {
+        $benchmark->{{ subject }}($parameters);
+    }
+    $endTime = microtime(true);
+} else {
+    $startTime = microtime(true);
+
+    for ($i = 0; $i < {{ revolutions }}; $i++) {
+        $benchmark->{{ subject }}();
+    }
+    $endTime = microtime(true);
 }
 
-$endTime = microtime(true);
 
 $time = ($endTime - $startTime) * 1000000;
 
 // run after methods
 foreach ($afterMethods as $afterMethod) {
-    $benchmark->$afterMethod({{ parameters }});
+    $benchmark->$afterMethod($parameters);
 }
 
 $buffer = ob_get_contents();

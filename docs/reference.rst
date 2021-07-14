@@ -4,7 +4,6 @@ Reference
 .. toctree::
    :maxdepth: 2
 
-   assertions
    annotributes
    expression
    configuration
@@ -12,4 +11,4 @@ Reference
    executors
    report-generators
    report-renderers
-   storage
+   report-components

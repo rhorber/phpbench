@@ -40,7 +40,7 @@ class RunnerHandler
     public const OPT_PHP_CONFIG = 'php-config';
     public const OPT_PHP_WRAPPER = 'php-wrapper';
     public const OPT_PHP_DISABLE_INI = 'php-disable-ini';
-    const OPT_FORMAT = 'format';
+    public const OPT_FORMAT = 'format';
 
     /**
      * @var LoggerRegistry
@@ -83,7 +83,7 @@ class RunnerHandler
 
     public static function configure(Command $command): void
     {
-        $command->addArgument(self::ARG_PATH, InputArgument::OPTIONAL, 'Path to benchmark(s)');
+        $command->addArgument(self::ARG_PATH, InputArgument::OPTIONAL | InputArgument::IS_ARRAY, 'Path to benchmark(s)');
         $command->addOption(self::OPT_FILTER, [], InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Ignore all benchmarks not matching command filter (can be a regex)');
         $command->addOption(self::OPT_GROUP, [], InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Group to run (can be specified multiple times)');
         $command->addOption(self::OPT_PARAMETERS, null, InputOption::VALUE_REQUIRED, 'Override parameters to use in (all) benchmarks');
@@ -108,11 +108,16 @@ class RunnerHandler
     {
         $default = RunnerConfig::create()
             ->withRevolutions($input->getOption(self::OPT_REVS))
-            ->withParameters($this->getParameters($input->getOption(self::OPT_PARAMETERS)))
             ->withExecutor($input->getOption(self::OPT_EXECUTOR))
             ->withStopOnError($input->getOption(self::OPT_STOP_ON_ERROR))
             ->withAssertions($input->getOption(self::OPT_ASSERT))
             ->withFormat($input->getOption(self::OPT_FORMAT));
+
+        $parameters = $this->getParameters($input->getOption(self::OPT_PARAMETERS));
+
+        if (null !== $parameters) {
+            $default = $default->withParameters([$parameters]);
+        }
 
         $config = $default->merge($config);
 

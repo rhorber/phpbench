@@ -9,7 +9,7 @@ Composer Install
 
 To install PHPBench as a dependency of your project:
 
-.. code-block:: php
+.. code-block:: bash
 
     $ composer require phpbench/phpbench --dev
 
@@ -23,7 +23,7 @@ You may then run PHPBench from your project's directory as follows:
 Install with PHIVE
 ------------------
 
-Install with The PHAR Installation and Verification Environment ([PHIVE](https://phar.io)):
+Install with The PHAR Installation and Verification Environment `PHIVE <https://phar.io>`_:
 
 .. code-block:: bash
 
@@ -31,11 +31,6 @@ Install with The PHAR Installation and Verification Environment ([PHIVE](https:/
 
 Install as a PHAR
 -----------------
-
-.. warning::
-
-    The below will only work after 1.0.0 has been released and there is a
-    non-prelease version available on Github.
 
 You can download `phpbench.phar` and the `phpbench.phar.asc`:
 as follows:

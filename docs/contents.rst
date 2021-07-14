@@ -8,10 +8,7 @@ PHPBench is a benchmarking framework for PHP. Find it on Github_.
 
    installing
    quick-start
-   writing-benchmarks
-   reports
-   benchmark-runner
-   regression-testing
+   guides
    reference
    extensions
    customisation
@@ -31,6 +28,6 @@ Indices and tables
 
    index
    configuration-prelude
-
+   executors/options/_memory_centric_microtime.rst
 
 .. _Github: https://github.com/phpbench/phpbench

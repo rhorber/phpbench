@@ -14,7 +14,7 @@ namespace PhpBench\Tests\Unit\Report\Generator;
 
 use Generator;
 use PhpBench\DependencyInjection\Container;
-use PhpBench\Extension\ExpressionExtension;
+use PhpBench\Extension\ConsoleExtension;
 use PhpBench\Model\SuiteCollection;
 use PhpBench\Registry\Config;
 use PhpBench\Report\GeneratorInterface;
@@ -22,7 +22,6 @@ use PhpBench\Report\Renderer\ConsoleRenderer;
 use PhpBench\Tests\IntegrationTestCase;
 use PhpBench\Tests\Util\Approval;
 use PhpBench\Tests\Util\TestUtil;
-use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Throwable;
 
@@ -34,31 +33,46 @@ abstract class GeneratorTestCase extends IntegrationTestCase
     public function testGenerate(string $path): void
     {
         $approval = Approval::create($path,3);
+        $config = $approval->getConfig(1);
+        $collection = new SuiteCollection([TestUtil::createSuite(array_merge([
+            'output_time_precision' => 3,
+        ], $approval->getConfig(0)))]);
 
-        $container = $this->container();
-        $generator = $this->createGenerator($container);
+        $approval->approve($this->generate($collection, $config));
+    }
+
+    /**
+     * @return parameters
+     *
+     * @param parameters $config
+     */
+    protected function resolveConfig(GeneratorInterface $generator, array $config): Config
+    {
         $options = new OptionsResolver();
         $generator->configure($options);
 
+        return new Config('test', $options->resolve($config));
+    }
+
+    protected function generate(SuiteCollection $collection, array $config): string
+    {
+        $container = $this->container();
+        $generator = $this->createGenerator($container);
+        $config = $this->resolveConfig($generator, $config);
+
         try {
             $document = $generator->generate(
-                new SuiteCollection([TestUtil::createSuite(array_merge([
-                    'output_time_precision' => 3,
-                ], $approval->getConfig(0)))]),
-                new Config('asd', $options->resolve($approval->getConfig(1)))
+                $collection,
+                $config
             );
-            $output = new BufferedOutput();
-            (
-                new ConsoleRenderer($output, $container->get(ExpressionExtension::SERVICE_PLAIN_PRINTER))
-            )->render($document, new Config('asd', [
-                'table_style' => 'default',
-            ]));
-            $actual = $output->fetch();
-        } catch (Throwable $e) {
-            $actual = $e->getMessage();
-        }
+            $this->container([
+                ConsoleExtension::PARAM_OUTPUT_STREAM => $this->workspace()->path('out')
+            ])->get(ConsoleRenderer::class)->render($document, new Config('test', []));
 
-        $approval->approve($actual);
+            return $this->workspace()->getContents('out');
+        } catch (Throwable $e) {
+            return $e->getMessage();
+        }
     }
 
     /**

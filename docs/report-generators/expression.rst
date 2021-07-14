@@ -3,6 +3,10 @@
 Expression Report
 =================
 
+.. note:: 
+
+    For custom reports it is now recommended to use the :doc:`component` generator.
+
 The expression generator is the generator that allows you to analyze your
 benchmarking results. It uses the PHPBench :doc:`expression language
 <expression>` to evaluate tabular data:
@@ -17,24 +21,17 @@ Yields something like:
   :language: bash
   :section: 2
 
-Options:
+Options
+-------
 
-- **title**: *(string)* Title of the report.
-- **description**: *(string)* Description of the report.
-- **cols**: *(array)* List of columns/expressions to show
-- **expressions**: *(array)* Set of available expressions
-- **baseline_expressions**: *(array)* Set of expressions that will be used
-  when a baseline is present
-- **break**: *(array)* List of columns; break into multiple tables based on
-- **aggregate**: *(array)* List of fields to aggregate on.
-- **include_baseline**: *(bool)* Include the baseline rows
+.. include:: options/_expression.rst
 
 .. _generator_expression_columns:
 
 Columns
 -------
 
-The visible columns are dicated by the ``cols`` configuration:
+The visible columns are dictated by the ``cols`` configuration:
 
 .. approved:: ../../examples/Command/report-generators-column-visibility
   :language: javascript
@@ -64,12 +61,33 @@ Which yields:
   :language: bash
   :section: 2
 
+.. _generator_expression_aggregate:
+
+Aggregate
+---------
+
+Aggregation decides which values are included in each row - should each row
+contain only the values for a single iteration? should all values for the
+variant by included? should we include all values for the entire suite? (not
+recommended).
+
+.. approved:: ../../examples/Command/report-generators-aggregate
+  :language: javascript
+  :section: 0
+
+This will aggregate by unique values of the named columns, producing a single
+row per iteration:
+
+.. approved:: ../../examples/Command/report-generators-aggregate
+  :language: bash
+  :section: 2
+
 .. _generator_expression_break:
 
 Break
 -----
 
-You can partition the report into mupltiple tables by using the ``break`` option:
+You can partition the report into multiple tables by using the ``break`` option:
 
 .. approved:: ../../examples/Command/report-generators-break
   :language: javascript
@@ -102,7 +120,42 @@ Which yields:
 Data
 ----
 
-The expressions act on table data. You can get a list of all available columns
+The expressions have access to all :ref:`aggregated
+<generator_expression_aggregate>` data, and in addition, the
+entire result set via. the ``suite`` variable.
+
+The :ref:`Aggregated <generator_expression_aggregate>` data is provided as an array
+of column names to values:
+
+.. code-block:: text
+
+    {
+        // ...
+        "subject_name": ["benchFoobar", "benchFoobar", "benchFoobar"],
+        "result_time_net": [10, 20, 30],
+        // ...
+    }
+
+So the ``mode`` for ``result_time_net`` could be calculated via the expression
+``mode(result_time_net)``.
+
+The ``suite`` variable is data frame that represents the entire result set and
+can be used to access a specific value through :ref:`filtering
+<expr_filtering>`. In the contrived example below we calculate the difference
+between the mode of a referenced subject against that of the current variant:
+
+.. approved:: ../../examples/Command/report-generators-filter-value
+  :language: bash
+  :section: 0
+
+Yielding:
+
+.. approved:: ../../examples/Command/report-generators-filter-value
+  :language: bash
+  :section: 2
+
+
+You can get a list of all available columns
 with:
 
 .. approved:: ../../examples/Command/report-generators-data
@@ -115,6 +168,6 @@ Yielding:
   :language: bash
   :section: 2
 
-Note that any additional result and :doc:`envronment <../environment>` data will
+Note that any additional result and :doc:`environment <../environment>` data will
 also be included in the form `result_<type>_<metric>` and
 `env_<type>_<metric>`.

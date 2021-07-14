@@ -12,6 +12,8 @@
 
 namespace PhpBench\Serializer;
 
+use function base64_decode;
+use DOMElement;
 use PhpBench\Assertion\AssertionResult;
 use PhpBench\Dom\Document;
 use PhpBench\Dom\Element;
@@ -109,6 +111,7 @@ class XmlDecoder
         $resultClasses = [];
 
         foreach ($suiteEl->query('//result') as $resultEl) {
+            assert($resultEl instanceof DOMElement);
             $class = $resultEl->getAttribute('class');
 
             if (!class_exists($class)) {
@@ -124,6 +127,7 @@ class XmlDecoder
         $suite->setEnvInformations($informations);
 
         foreach ($suiteEl->query('./benchmark') as $benchmarkEl) {
+            assert($benchmarkEl instanceof Element);
             $benchmark = $suite->createBenchmark(
                 $benchmarkEl->getAttribute('class')
             );
@@ -170,12 +174,12 @@ class XmlDecoder
         }
 
         foreach ($subjectEl->query('./variant') as $index => $variantEl) {
-            $parameterSet = new ParameterSet('0', []);
+            $parameterSet = ParameterSet::fromUnwrappedParameters('0', []);
 
             foreach ($variantEl->query('./parameter-set') as $parameterSetEl) {
                 $name = $parameterSetEl->getAttribute('name');
                 $parameters = $this->getParameters($parameterSetEl);
-                $parameterSet = new ParameterSet($name, $parameters);
+                $parameterSet = ParameterSet::fromUnwrappedParameters($name, $parameters);
 
                 break;
             }
@@ -205,8 +209,20 @@ class XmlDecoder
         foreach ($element->query('./parameter') as $parameterEl) {
             $name = $parameterEl->getAttribute('name');
 
-            if ($parameterEl->getAttribute('type') === 'collection') {
+            if ($parameterEl->getAttribute('type') === XmlEncoder::PARAM_TYPE_COLLECTION) {
                 $parameters[$name] = $this->getParameters($parameterEl);
+
+                continue;
+            }
+
+            if ($parameterEl->getAttribute('type') === XmlEncoder::PARAM_TYPE_BINARY) {
+                $parameters[$name] = base64_decode($parameterEl->nodeValue);
+
+                continue;
+            }
+
+            if ($parameterEl->getAttribute('type') === XmlEncoder::PARAM_TYPE_SERIALIZED) {
+                $parameters[$name] = unserialize(base64_decode($parameterEl->nodeValue));
 
                 continue;
             }

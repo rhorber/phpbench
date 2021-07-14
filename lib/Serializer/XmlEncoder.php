@@ -12,6 +12,9 @@
 
 namespace PhpBench\Serializer;
 
+use function base64_encode;
+use DOMElement;
+use Exception;
 use PhpBench\Dom\Document;
 use PhpBench\Dom\Element;
 use PhpBench\Model\Benchmark;
@@ -22,12 +25,27 @@ use PhpBench\Model\SuiteCollection;
 use PhpBench\Model\Variant;
 use PhpBench\PhpBench;
 use PhpBench\Util\TimeUnit;
+use RuntimeException;
 
 /**
  * Encodes the Suite object graph into an XML document.
  */
 class XmlEncoder
 {
+    public const PARAM_TYPE_BINARY = 'binary';
+    public const PARAM_TYPE_COLLECTION = 'collection';
+    public const PARAM_TYPE_SERIALIZED = 'serialized';
+
+    /**
+     * @var bool
+     */
+    private $storeBinary;
+
+    public function __construct(bool $storeBinary = true)
+    {
+        $this->storeBinary = $storeBinary;
+    }
+
     /**
      * Encode a Suite object into a XML document.
      *
@@ -61,10 +79,9 @@ class XmlEncoder
                 $infoEl = $envEl->appendElement($information->getName());
 
                 foreach ($information as $key => $value) {
-                    $valueEl = $infoEl->appendElement('value');
+                    $valueEl = $infoEl->appendTextNode('value', $value);
                     $valueEl->setAttribute('name', $key);
                     $valueEl->setAttribute('type', gettype($value));
-                    $valueEl->nodeValue = $value;
                 }
             }
 
@@ -120,7 +137,7 @@ class XmlEncoder
         $parameterSetEl = $variantEl->appendElement('parameter-set');
         $parameterSetEl->setAttribute('name', $variant->getParameterSet()->getName());
 
-        foreach ($variant->getParameterSet() as $name => $value) {
+        foreach ($variant->getParameterSet()->toUnwrappedParameters() as $name => $value) {
             $this->createParameter($parameterSetEl, $name, $value);
         }
 
@@ -128,7 +145,7 @@ class XmlEncoder
             $errorsEl = $variantEl->appendElement('errors');
 
             foreach ($variant->getErrorStack() as $error) {
-                $errorEl = $errorsEl->appendElement('error', $error->getMessage());
+                $errorEl = $errorsEl->appendTextNode('error', $error->getMessage());
                 $errorEl->setAttribute('exception-class', $error->getClass());
                 $errorEl->setAttribute('code', $error->getCode());
                 $errorEl->setAttribute('file', $error->getFile());
@@ -142,7 +159,7 @@ class XmlEncoder
             $failuresEl = $variantEl->appendElement('failures');
 
             foreach ($variant->getAssertionResults()->failures() as $failure) {
-                $failureEl = $failuresEl->appendElement('failure', $failure->getMessage());
+                $failureEl = $failuresEl->appendTextNode('failure', $failure->getMessage());
             }
         }
 
@@ -193,10 +210,11 @@ class XmlEncoder
     private function createParameter($parentEl, $name, $value)
     {
         $parameterEl = $parentEl->appendElement('parameter');
+        assert($parameterEl instanceof DOMElement);
         $parameterEl->setAttribute('name', $name);
 
         if (is_array($value)) {
-            $parameterEl->setAttribute('type', 'collection');
+            $parameterEl->setAttribute('type', self::PARAM_TYPE_COLLECTION);
 
             foreach ($value as $key => $element) {
                 $this->createParameter($parameterEl, $key, $element);
@@ -211,16 +229,38 @@ class XmlEncoder
             return $parameterEl;
         }
 
-        if (is_scalar($value)) {
+        if (is_scalar($value) && !$this->isBinary($value)) {
             $parameterEl->setAttribute('value', $value);
 
             return $parameterEl;
         }
 
-        throw new \InvalidArgumentException(sprintf(
-            'Parameters must be either scalars or arrays, got: %s',
-            is_object($value) ? get_class($value) : gettype($value)
-        ));
+        if (!$this->storeBinary) {
+            $parameterEl->setAttribute('xsi:nil', 'true');
+
+            return $parameterEl;
+        }
+
+        if (is_scalar($value) && $this->isBinary($value)) {
+            $parameterEl->appendChild(
+                $parameterEl->ownerDocument->createCDATASection(base64_encode($value))
+            );
+            $parameterEl->setAttribute('type', self::PARAM_TYPE_BINARY);
+
+            return $parameterEl;
+        }
+
+        try {
+            $serialized = @serialize($value);
+        } catch (Exception $e) {
+            throw new RuntimeException(sprintf(
+                'Cannot serialize object of type "%s" for parameter "%s"', gettype($value), $name
+            ));
+        }
+        $parameterEl->setAttribute('type', self::PARAM_TYPE_SERIALIZED);
+        $parameterEl->appendChild(
+            $parameterEl->ownerDocument->createCDATASection(base64_encode($serialized))
+        );
     }
 
     private function appendExecutor(Element $subjectEl, ResolvedExecutor $executor = null): void
@@ -248,5 +288,10 @@ class XmlEncoder
         foreach ($stats as $statName => $statValue) {
             $statsEl->setAttribute($statName, $statValue);
         }
+    }
+
+    private function isBinary($value)
+    {
+        return !preg_match('//u', $value);
     }
 }

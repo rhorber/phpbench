@@ -15,7 +15,7 @@ namespace PhpBench\Tests\Unit\Executor\Benchmark;
 use PhpBench\Executor\Benchmark\RemoteExecutor;
 use PhpBench\Executor\BenchmarkExecutorInterface;
 use PhpBench\Executor\ExecutionResults;
-use PhpBench\Registry\Config;
+use PhpBench\Model\ParameterSet;
 use PhpBench\Remote\Launcher;
 use RuntimeException;
 
@@ -30,8 +30,48 @@ class RemoteExecutorTest extends AbstractExecutorTestCase
             $this->buildContext([
                 'methodName' => 'benchOutput',
             ]),
-            new Config('test', [])
+            $this->resolveConfig([])
         );
+    }
+
+    public function testParameterClassDefinedOnlyInRemoteProcess(): void
+    {
+        $this->executor->execute(
+            $this->buildContext([
+                'methodName' => 'parameterized',
+                'parameters' => ParameterSet::fromWrappedParameters('ad', [
+                    'foo' => [
+                        'type' => 'object',
+                        'value' => 'O:60:"PhpBench\Tests\Unit\Executor\benchmarks\ClassDefinedRemotely":1:{s:4:"test";s:5:"hello";}',
+                    ]
+                ])
+            ]),
+            $this->resolveConfig([])
+        );
+        $params = json_decode($this->workspace()->getContents('param.tmp'), true);
+        $foo = $params['foo'];
+        self::assertArrayNotHasKey('__PHP_Incomplete_Class_Name', $foo);
+        self::assertCount(1, $foo);
+        self::assertEquals('hello', $foo['test']);
+    }
+
+    public function testUnsafeParameters(): void
+    {
+        $this->executor->execute(
+            $this->buildContext([
+                'methodName' => 'parameterized',
+                'parameters' => ParameterSet::fromUnwrappedParameters('ad', [
+                    'foo' => [
+                        'bar'
+                    ],
+                ])
+            ]),
+            $this->resolveConfig([
+                RemoteExecutor::OPTION_SAFE_PARAMETERS => false,
+            ])
+        );
+        $params = json_decode($this->workspace()->getContents('param.tmp'), true);
+        self::assertEquals(['bar'], $params['foo']);
     }
 
     protected function createExecutor(): BenchmarkExecutorInterface

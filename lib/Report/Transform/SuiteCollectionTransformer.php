@@ -3,6 +3,7 @@
 namespace PhpBench\Report\Transform;
 
 use Generator;
+use PhpBench\Data\DataFrame;
 use PhpBench\Model\Iteration;
 use PhpBench\Model\Subject;
 use PhpBench\Model\Suite;
@@ -13,8 +14,13 @@ final class SuiteCollectionTransformer
 {
     public const COL_HAS_BASELINE = 'has_baseline';
 
+    public function suiteToFrame(SuiteCollection $collection, bool $includeBaseline = false): DataFrame
+    {
+        return DataFrame::fromRecords($this->suiteToTable($collection, $includeBaseline));
+    }
+
     /**
-     * @return array<string,array<string,mixed>>
+     * @deprecated will be removed in 2.0, use `suiteToFrame`.
      */
     public function suiteToTable(SuiteCollection $collection, bool $includeBaseline = false): array
     {
@@ -90,9 +96,9 @@ final class SuiteCollectionTransformer
 
 
     /**
-     * @param array<string,array<string,mixed>> $table
+     * @param array<int,array<string,mixed>> $table
      *
-     * @return array<string,array<string,mixed>>
+     * @return array<int,array<string,mixed>>
      */
     private function normalize(array $table): array
     {
@@ -127,7 +133,7 @@ final class SuiteCollectionTransformer
             'subject_time_precision' => $subject->getOutputTimePrecision(),
             'subject_time_mode' => $subject->getOutputMode(),
             'variant_name' => $variant->getParameterSet()->getName(),
-            'variant_params' => $variant->getParameterSet()->getArrayCopy(),
+            'variant_params' => $variant->getParameterSet()->toUnwrappedParameters(),
             'variant_revs' => $variant->getRevolutions(),
             'variant_iterations' => count($variant->getIterations()),
             'suite_tag' => $suite->getTag() ? $suite->getTag()->__toString() : '<current>',

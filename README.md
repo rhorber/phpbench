@@ -19,9 +19,9 @@ Features include:
 - [Iterations](https://phpbench.readthedocs.io/en/latest/annotributes.html#iterations): Sample your revolutions many times and review aggregated
   statistical data.
 - **Process Isolation**: Each iteration is executed in a separate process.
-- [Reporting](https://phpbench.readthedocs.io/en/latest/reports.html): Customizable reports and various output formats (e.g.
+- [Reporting](https://phpbench.readthedocs.io/en/latest/guides/reports.html): Customizable reports and various output formats (e.g.
   console, CSV, Markdown, HTML).
-- Report [storage](https://phpbench.readthedocs.io/en/latest/storage.html) and [comparison](https://phpbench.readthedocs.io/en/latest/regression-testing.html): Store benchmarks locally to be used as a
+- Report [storage](https://phpbench.readthedocs.io/en/latest/storage.html) and [comparison](https://phpbench.readthedocs.io/en/latest/guides/regression-testing.html): Store benchmarks locally to be used as a
   baseline reference, or to reference them later.
 - **Memory Usage**: Keep an eye on the amount of memory used by benchmarking
   subjects.
@@ -56,17 +56,18 @@ Community
 Screenshots
 -----------
 
-Default output:
+Running benchmarks and comparing against a baseline:
 
-![phpbench-standard](https://user-images.githubusercontent.com/530801/92305757-14aeac00-ef82-11ea-87b1-077afc72f0f4.png)
+![phpbench](https://user-images.githubusercontent.com/530801/117569074-b52e1080-b0bb-11eb-8c80-a89ce9cce1e2.png)
+
+Aggregated report:
+
+![image](https://user-images.githubusercontent.com/530801/117569081-c8d97700-b0bb-11eb-91e5-fc9eaa1ac157.png)
 
 Blinken logger:
 
 ![phpbench-blinken](https://user-images.githubusercontent.com/530801/92305786-4a539500-ef82-11ea-8a2c-db67968113b5.png)
 
-HTML report:
-
-![phpbench2](https://cloud.githubusercontent.com/assets/530801/10666918/bb61e438-78d4-11e5-8add-454c51261aa8.png)
 
 Contributing
 ------------

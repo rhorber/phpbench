@@ -16,15 +16,18 @@ use PhpBench\Expression\ColorMap;
 use PhpBench\Expression\Evaluator;
 use PhpBench\Expression\Evaluator\MainEvaluator;
 use PhpBench\Expression\Evaluator\PrettyErrorEvaluator;
+use PhpBench\Expression\ExpressionEvaluator;
 use PhpBench\Expression\ExpressionFunctions;
 use PhpBench\Expression\ExpressionLanguage;
 use PhpBench\Expression\ExpressionLanguage\MemoisedExpressionLanguage;
 use PhpBench\Expression\ExpressionLanguage\RealExpressionLanguage;
 use PhpBench\Expression\Func\CoalesceFunction;
+use PhpBench\Expression\Func\CountFunction;
 use PhpBench\Expression\Func\DisplayAsTimeFunction;
 use PhpBench\Expression\Func\FirstFunction;
 use PhpBench\Expression\Func\FormatFunction;
 use PhpBench\Expression\Func\JoinFunction;
+use PhpBench\Expression\Func\LabelFunction;
 use PhpBench\Expression\Func\MaxFunction;
 use PhpBench\Expression\Func\MeanFunction;
 use PhpBench\Expression\Func\MinFunction;
@@ -32,6 +35,7 @@ use PhpBench\Expression\Func\ModeFunction;
 use PhpBench\Expression\Func\PercentDifferenceFunction;
 use PhpBench\Expression\Func\RStDevFunction;
 use PhpBench\Expression\Func\StDevFunction;
+use PhpBench\Expression\Func\SumFunction;
 use PhpBench\Expression\Func\VarianceFunction;
 use PhpBench\Expression\Lexer;
 use PhpBench\Expression\NodeEvaluator;
@@ -43,7 +47,6 @@ use PhpBench\Expression\NodeEvaluator\DisplayAsEvaluator;
 use PhpBench\Expression\NodeEvaluator\FunctionEvaluator;
 use PhpBench\Expression\NodeEvaluator\ListEvaluator;
 use PhpBench\Expression\NodeEvaluator\LogicalOperatorEvaluator;
-use PhpBench\Expression\NodeEvaluator\MemoisedNodeEvaluator;
 use PhpBench\Expression\NodeEvaluator\ParameterEvaluator;
 use PhpBench\Expression\NodeEvaluator\ParenthesisEvaluator;
 use PhpBench\Expression\NodeEvaluator\PhpValueEvaluator;
@@ -60,8 +63,10 @@ use PhpBench\Expression\NodePrinter\ConcatPrinter;
 use PhpBench\Expression\NodePrinter\DisplayAsPrinter;
 use PhpBench\Expression\NodePrinter\FunctionPrinter;
 use PhpBench\Expression\NodePrinter\HighlightingNodePrinter;
+use PhpBench\Expression\NodePrinter\LabelPrinter;
 use PhpBench\Expression\NodePrinter\ListPrinter;
 use PhpBench\Expression\NodePrinter\NullPrinter;
+use PhpBench\Expression\NodePrinter\NullSafePrinter;
 use PhpBench\Expression\NodePrinter\NumberPrinter;
 use PhpBench\Expression\NodePrinter\ParameterPrinter;
 use PhpBench\Expression\NodePrinter\ParenthesisPrinter;
@@ -71,7 +76,9 @@ use PhpBench\Expression\NodePrinter\RelativeDeviationPrinter;
 use PhpBench\Expression\NodePrinter\StringPrinter;
 use PhpBench\Expression\NodePrinter\TolerablePrinter;
 use PhpBench\Expression\NodePrinter\UnitPrinter;
+use PhpBench\Expression\NodePrinter\UnrepresentableValuePrinter;
 use PhpBench\Expression\NodePrinter\ValueWithUnitPrinter;
+use PhpBench\Expression\NodePrinter\VariablePrinter;
 use PhpBench\Expression\NodePrinters;
 use PhpBench\Expression\Parselet\ArithmeticOperatorParselet;
 use PhpBench\Expression\Parselet\BooleanParselet;
@@ -195,7 +202,7 @@ class ExpressionExtension implements ExtensionInterface
 
         $container->register(Evaluator::class, function (Container $container) {
             return new PrettyErrorEvaluator(
-                new MainEvaluator(new MemoisedNodeEvaluator($container->get(NodeEvaluator::class))),
+                new MainEvaluator($container->get(NodeEvaluator::class)),
                 $container->get(self::SERVICE_PLAIN_PRINTER),
                 new UnderlinePrinterFactory($container->get(NodePrinters::class))
             );
@@ -271,9 +278,13 @@ class ExpressionExtension implements ExtensionInterface
                 new DisplayAsPrinter($container->get(TimeUnit::class)),
                 new ParameterPrinter(),
                 new StringPrinter(),
+                new LabelPrinter(),
                 new ConcatPrinter(),
                 new PercentageDifferencePrinter(),
                 new NullPrinter(),
+                new UnrepresentableValuePrinter(),
+                new VariablePrinter(),
+                new NullSafePrinter(),
             ]);
         });
 
@@ -318,6 +329,9 @@ class ExpressionExtension implements ExtensionInterface
                 'first' => new FirstFunction(),
                 'coalesce' => new CoalesceFunction(),
                 'display_as_time' => new DisplayAsTimeFunction(),
+                'label' => new LabelFunction(),
+                'count' => new CountFunction(),
+                'sum' => new SumFunction(),
             ]);
         });
 
@@ -328,6 +342,13 @@ class ExpressionExtension implements ExtensionInterface
         $container->register(ExpressionLanguage::class, function (Container $container) {
             return new MemoisedExpressionLanguage(
                 new RealExpressionLanguage($container->get(Lexer::class), $container->get(Parser::class))
+            );
+        });
+        $container->register(ExpressionEvaluator::class, function (Container $container) {
+            return new ExpressionEvaluator(
+                $container->get(ExpressionLanguage::class),
+                $container->get(Evaluator::class),
+                $container->get(Printer::class)
             );
         });
     }

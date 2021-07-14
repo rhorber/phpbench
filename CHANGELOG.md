@@ -1,12 +1,103 @@
 CHANGELOG
 =========
 
-dev-master
-----------
+master
+------
+
+Bug fixes:
+
+- Ensure all refs are passed to report in run mode #864
+
+Features:
+
+- Added `sum` and `count` functions #865
+- New component based report generator #851
+- HTML Bar Chart component #853
+- Console Bar Chart component #858
+- Data Frame and Expression Filtering #831
+- Allow multiple benchmark paths to be specified from CLI #834
+- Functions which require at least one value return NULL when values are
+  empty #835
+- Add `--limit` option to `log` command #879
+- Add `bare-vertical` report configuration (same as `--report='extends: bare,{"vertical": true}`) #879
+
+Improvement:
+
+- Use automatic time unit for expression report #838
+- Parameter handling refactored to be "safe": objects will not be unserialized
+  in the PHPBench process #845
+
+Other changes:
+
+- "0" is not longer shown as the "set name" in reports, it is now an empty
+  string.
+
+1.0.3 (2021-07-03)
+------------------
+
+Bug fix:
+
+- Show warning if file is parsed but it is not a benchmark file. #883
+
+  Files that are not suffixed with `Bench.php` are are reflected and their
+  docblocks are parsed. Causing unexpected errors if unknown docblock tags are
+  present.
+
+  As changing this behavior (introduced by error in 2016) is a B/C break,
+  it will not be changed in a bug-fix release.
+
+  An option `runner.file_pattern` has been added however to enable the
+  warnings to be resolved.
+
+Improvement:
+
+- Show warning if metadata could not be loaded for benchmark instead of
+  an exception.
+>>>>>>> 1.0.x
+
+1.0.2 (2021-05-28)
+------------------
+
+Bug fix:
+
+- Fix incorrect benchmark column definition in report #840
+- Fix `--ansi` flag not be propagated to report output #844
+
+1.0.1 (2021-05-11)
+------------------
+
+Bug fix:
+
+- Error with bare report when DateTime used as param #832
+
+1.0.0 (2021-05-09)
+------------------
+
+Improvements:
+
+- Optionaly support for binary data in param providers #532
+- Support serializable objects in param providers #823
+
+Bug fix:
+
+- Fix regression which requires phpbench to be installed with composer 2 #822
+
+1.0.0-beta2
+-----------
+
+B/C breaks:
+
+- Progress logger: startSuite now additionally accepts `RunnerConfig`
 
 Improvements:
 
 - Use package versions to show PHPBench version if not PHAR
+
+Bug fixes:
+
+- Unterminated XML reference #818 - @staabm
+- Parent directory for custom script path not created #739 - @alexandrajulius
+- Windows newline is not understood in expression language #817 - @dantleech
 
 1.0.0-beta1
 -----------

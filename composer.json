@@ -8,7 +8,7 @@
             "email": "daniel@dantleech.com"
         }
     ],
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {
         "php": "^7.2 || ^8.0",
@@ -18,7 +18,6 @@
         "ext-reflection": "*",
         "ext-spl": "*",
         "ext-tokenizer": "*",
-        "composer/package-versions-deprecated": "^1.8",
         "doctrine/annotations": "^1.2.7",
         "phpbench/container": "^2.1",
         "phpbench/dom": "~0.3.1",
@@ -32,7 +31,7 @@
         "webmozart/path-util": "^2.3"
     },
     "require-dev": {
-        "dantleech/invoke": "^1.2",
+        "dantleech/invoke": "^2.0",
         "friendsofphp/php-cs-fixer": "^2.13.1",
         "jangregor/phpstan-prophecy": "^0.8.1",
         "phpspec/prophecy": "^1.12",
@@ -42,17 +41,21 @@
         "symfony/var-dumper": "^4.0 || ^5.0"
     },
     "scripts": {
-        "integrate": [
+        "integrate":[ 
             "vendor/bin/php-cs-fixer fix",
             "vendor/bin/phpstan analyse -c phpstan.neon.dist",
             "vendor/bin/phpunit",
-            "bin/phpbench run --revs=1 --iterations=1",
+            "bin/phpbench run --revs=1 --iterations=2",
             "bin/phpbench run --profile=examples --revs=1 --iterations=1",
             "@docs"
         ],
         "docs": [
             "rm -Rf docs/build",
-            "bin/phpbench config:dump-reference > docs/configuration.rst",
+            "bin/phpbench doc:config-reference > docs/configuration.rst",
+            "bin/phpbench doc:service-options docs/report-generators/options generator",
+            "bin/phpbench doc:service-options docs/report-renderers/options renderer",
+            "bin/phpbench doc:service-options docs/report-components/options component",
+            "bin/phpbench doc:service-options docs/executors/options executor",
             "make -C docs html"
         ]
     },
@@ -64,7 +67,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-master": "1.0-dev"
+            "dev-master": "1.1-dev"
         }
     },
     "autoload": {

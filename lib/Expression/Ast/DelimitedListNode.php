@@ -2,7 +2,7 @@
 
 namespace PhpBench\Expression\Ast;
 
-abstract class DelimitedListNode implements Node, PhpValue
+abstract class DelimitedListNode extends PhpValue
 {
     /**
      * @var Node[]
@@ -20,7 +20,7 @@ abstract class DelimitedListNode implements Node, PhpValue
     /**
      * @return Node[]
      */
-    public function value(): array
+    public function nodes(): array
     {
         return $this->nodes;
     }
@@ -28,14 +28,20 @@ abstract class DelimitedListNode implements Node, PhpValue
     /**
      * @return mixed[]
      */
-    public function phpValues(): array
+    public function value(): array
     {
         return array_map(function (PhpValue $node) {
-            if ($node instanceof DelimitedListNode) {
-                return $node->phpValues();
-            }
-
             return $node->value();
         }, $this->nodes);
+    }
+
+    /**
+     * @return mixed[]
+     */
+    public function nonNullPhpValues(): array
+    {
+        return array_values(array_filter($this->value(), function ($value) {
+            return $value !== null;
+        }));
     }
 }

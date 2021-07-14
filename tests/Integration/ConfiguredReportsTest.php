@@ -37,7 +37,9 @@ class ConfiguredReportsTest extends IntegrationTestCase
             $generator,
             $renderer
         ), 0);
-        $approval->approve($this->workspace()->getContents('test'));
+        $contents = $this->workspace()->getContents('test');
+        $contents = str_replace(getcwd(), '', $contents);
+        $approval->approve($contents);
     }
 
     /**
@@ -49,7 +51,7 @@ class ConfiguredReportsTest extends IntegrationTestCase
         $renderers = $this->container()->get(ReportExtension::SERVICE_REGISTRY_RENDERER);
 
         foreach ($generators->getConfigNames() as $generator) {
-            foreach ($renderers->getConfigNames() as $renderer) {
+            foreach (array_unique(array_merge($renderers->getServiceNames(), $renderers->getConfigNames())) as $renderer) {
                 yield [
                     $generator,
                     $renderer

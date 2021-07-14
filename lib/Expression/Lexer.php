@@ -14,11 +14,11 @@ final class Lexer
      */
     private $unitNames;
 
-    private const PATTERN_NAME = '(?:[a-z_\/]+)';
+    private const PATTERN_NAME = '(?:[a-z_\/]{1}[a-z0-9_\/]*)';
     private const PATTERN_FUNCTION = '(?:[a-z_\/]+\()';
     private const PATTERN_STRING = '"(?:[^"]|"")*"';
     private const PATTERN_NUMBER = '(?:[0-9]+(?:[\\.][0-9]+)*)(?:e[+-]?[0-9]+)?';
-    private const PATTERN_PARAMETER = '(?:(?:[a-z_]+\\.)+(?:[a-z_]+))';
+    private const PATTERN_PARAMETER = '(?:(?:[a-z_]+\\.)+(?:[a-z_\[\]]+))';
 
     private const TOKEN_VALUE_MAP = [
         '+/-' => Token::T_TOLERANCE,
@@ -40,6 +40,7 @@ final class Lexer
         '=' => Token::T_EQUALS,
         '<' => Token::T_LT,
         '~' => Token::T_TILDE,
+        '?' => Token::T_QUESTION,
         'and' => Token::T_LOGICAL_OR,
         'true' => Token::T_BOOLEAN,
         'false' => Token::T_BOOLEAN,
@@ -63,7 +64,7 @@ final class Lexer
         array $unitNames = []
     ) {
         $this->pattern = sprintf(
-            '{(%s)|(%s)|\n}iu',
+            '{(%s)|(%s)|\n|\r}iu',
             implode(')|(', array_map(function (string $value) {
                 return preg_quote($value);
             }, array_keys(self::TOKEN_VALUE_MAP))),

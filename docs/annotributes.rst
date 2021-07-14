@@ -1,11 +1,15 @@
 Annotributes
 ============
 
-Configure your benchmarks with **Annotations** or, if you have PHP 8, **Attributes**.
+Configure your benchmarks with **Annotations** or, if you have PHP 8, **Attributes**. Note that some
+of these settings (e.g. :ref:`configuration_runner_revs`,
+:ref:`configuration_runner_iterations`) can be set globaly in the
+:doc:`configuration`.
 
 .. contents::
     :depth: 1
     :local:
+
 
 .. _metadata_revolutions:
 
@@ -443,7 +447,7 @@ You can also specify assertions from the command line:
 
     $ phpbench run --assert='mode(variant.time.avg) < 10 hours'
 
-See :doc:`assertions` for more information.
+See :doc:`guides/assertions` for more information.
 
 .. _cartesian product: https://en.wikipedia.org/wiki/Cartesian_product
 
